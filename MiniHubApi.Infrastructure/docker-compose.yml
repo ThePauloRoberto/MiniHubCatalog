@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: my-secret-pw
+      MYSQL_DATABASE: mydatabase
+      MYSQL_USER: myuser
+      MYSQL_PASSWORD: mypassword
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb_container
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: dockeruser
+      MONGO_INITDB_ROOT_PASSWORD: securepassword
+    volumes:
+      - mongodb_data:/data/db
+
+volumes:
+  mysql-data:
+  mongodb_data:
