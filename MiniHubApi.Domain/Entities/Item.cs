@@ -4,17 +4,19 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text;
 
-namespace MiniHubApi.Domain.Entities
+namespace MiniHubApi.Domain.Entities;
+
+public class Item
 {
-    [Table("Items")]
-    public class Item
-    {
-        Guid Id { get; set; }
-        string Nome { get; set; }
-        string Descricao { get; set; }
-        string Categoria { get; set; }
-        double Preco { get; set; }
-        bool Ativo { get; set; }
-        string Tags { get; set; }
-    }
+    [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    public Guid Id { get; set; }
+    public string Nome { get; set; }
+    public string Descricao { get; set; } 
+    public double Preco { get; set; }
+    public bool Ativo { get; set; }
+    public Guid? CategoryId { get; set; }
+    public Category Categoria { get; set; }
+    public List<Tag> Tags { get; set; }
+    
 }
