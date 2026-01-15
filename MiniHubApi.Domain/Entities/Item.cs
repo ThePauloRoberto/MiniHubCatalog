@@ -13,10 +13,15 @@ public class Item
     public Guid Id { get; set; }
     public string Nome { get; set; }
     public string Descricao { get; set; } 
-    public double Preco { get; set; }
-    public bool Ativo { get; set; }
-    public Guid? CategoryId { get; set; }
-    public Category Categoria { get; set; }
+    public decimal Preco { get; set; }
+    public bool Ativo { get; set; } = true;
+    public int? CategoryId { get; set; }
+    public Category? Categoria { get; set; }
     public List<Tag> Tags { get; set; }
+    public int Estoque { get; set; } = 0;
+    
+    public string? ExternalId { get; set; } 
+    public string? CategoryExternalId { get; set; }
+
     
 }
