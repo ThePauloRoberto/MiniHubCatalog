@@ -4,6 +4,7 @@ using MiniHubApi.Application.Configuration;
 using MiniHubApi.Application.Services.Implementations;
 using MiniHubApi.Application.Services.Interfaces;
 using MiniHubApi.Infrastructure.Data;
+using MiniHubApi.Middlewares;
 using MongoDB.Driver;
 using ServerVersion = Microsoft.EntityFrameworkCore.ServerVersion;
 
@@ -24,6 +25,9 @@ builder.Services.Configure<ExternalApiSettings>(
     builder.Configuration.GetSection(ExternalApiSettings.SectionName));
 builder.Services.AddHttpClient<IExternalApiService, ExternalApiService>();
 builder.Services.AddScoped<IDataImportService, DataImportService>();
+builder.Services.AddScoped<IItemService, ItemService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<ITagService, TagService>();
 
 // Configure the HTTP request pipeline.
 
@@ -77,8 +81,6 @@ builder.Services.AddHttpClient("ExternalApi", client =>
 {
     client.BaseAddress = new Uri("https://69657a38f6de16bde44a70f6.mockapi.io/:endpoint");
     client.DefaultRequestHeaders.Add("Accept", "application/json");
-    // Adicione headers de autenticação se necessário
-    // client.DefaultRequestHeaders.Add("Authorization", "Bearer token");
 });
 
 var app = builder.Build();
@@ -91,6 +93,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseMiddleware<ServiceLoggingMiddleware>();
+app.UseMiddleware<ServiceExceptionMiddleware>();
 
 app.UseHttpsRedirection();
 
