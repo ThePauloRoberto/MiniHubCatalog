@@ -79,8 +79,6 @@ public class CategoriesController : ControllerBase
         [HttpGet("{id:int}")]
         public async Task<ActionResult<CategoryDto>> GetCategory(int id)
         {
-            try
-            {
                 var category = await _context.Categories
                     .Select(c => new CategoryDto
                     {
@@ -97,19 +95,12 @@ public class CategoriesController : ControllerBase
                 }
 
                 return Ok(category);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Erro ao buscar categoria {id}");
-                return StatusCode(500, new { message = "Erro interno do servidor" });
-            }
+            
         }
         
         [HttpPost]
         public async Task<ActionResult<CategoryDto>> CreateCategory([FromBody] CreateCategoryDto dto)
         {
-            try
-            {
                 if (string.IsNullOrWhiteSpace(dto.Name))
                 {
                     return BadRequest(new { message = "Nome é obrigatório" });
@@ -144,19 +135,11 @@ public class CategoriesController : ControllerBase
                 };
 
                 return CreatedAtAction(nameof(GetCategory), new { id = category.Id }, result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao criar categoria");
-                return StatusCode(500, new { message = "Erro interno do servidor" });
-            }
         }
         
         [HttpPut("{id:int}")]
         public async Task<IActionResult> UpdateCategory(int id, [FromBody] CreateCategoryDto dto)
         {
-            try
-            {
                 var category = await _context.Categories.FindAsync(id);
 
                 if (category == null)
@@ -170,19 +153,11 @@ public class CategoriesController : ControllerBase
                 await _context.SaveChangesAsync();
 
                 return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Erro ao atualizar categoria {id}");
-                return StatusCode(500, new { message = "Erro interno do servidor" });
-            }
         }
         
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> DeleteCategory(int id)
         {
-            try
-            {
                 var category = await _context.Categories
                     .Include(c => c.Items)
                     .FirstOrDefaultAsync(c => c.Id == id);
@@ -204,19 +179,11 @@ public class CategoriesController : ControllerBase
                 await _context.SaveChangesAsync();
 
                 return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Erro ao excluir categoria {id}");
-                return StatusCode(500, new { message = "Erro interno do servidor" });
-            }
         }
         
         [HttpGet("by-external/{externalId}")]
         public async Task<ActionResult<CategoryDto>> GetCategoryByExternalId(string externalId)
         {
-            try
-            {
                 var category = await _context.Categories
                     .Select(c => new CategoryDto
                     {
@@ -233,11 +200,6 @@ public class CategoriesController : ControllerBase
                 }
 
                 return Ok(category);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Erro ao buscar categoria por ExternalId {externalId}");
-                return StatusCode(500, new { message = "Erro interno do servidor" });
-            }
+            
         }
 }

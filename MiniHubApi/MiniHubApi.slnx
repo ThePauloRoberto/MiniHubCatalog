@@ -1,7 +1,5 @@
 <Solution>
-  <Folder Name="/Docker/">
-    <File Path="docker-compose.yml" />
-  </Folder>
+  <Folder Name="/Docker/" />
   <Project Path="../MiniHubApi.Application/MiniHubApi.Application.csproj" Id="0c5e26bc-134c-4b6f-8fd8-5867b665c171" />
   <Project Path="../MiniHubApi.Domain/MiniHubApi.Domain.csproj" Id="c857d133-6f5f-4ff6-a90c-d64a79573b8d" />
   <Project Path="../MiniHubApi.Infrastructure/MiniHubApi.Infrastructure.csproj" Id="d235819b-34e3-4d53-89a9-8333f9bce88a" />

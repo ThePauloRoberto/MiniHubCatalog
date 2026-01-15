@@ -4,14 +4,13 @@ using MiniHubApi.Application.Services.Interfaces;
 namespace MiniHubApi.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]  // Vira: /api/import
+[Route("api/[controller]")]
 public class ImportController : ControllerBase
 {
     private readonly IExternalApiService _externalApiService;
     private readonly ILogger<ImportController> _logger;
     private readonly IDataImportService _importService;
-
-    // O ASP.NET INJETA automaticamente o serviço aqui!
+        
     public ImportController(
         IExternalApiService externalApiService,
         ILogger<ImportController> logger,
@@ -61,7 +60,7 @@ public class ImportController : ControllerBase
                 updated = resultado.Updated,
                 failed = resultado.Failed
             },
-            errors = resultado.Errors.Take(10)  // Mostra só 10 erros
+            errors = resultado.Errors.Take(10) 
         });
     }
     
