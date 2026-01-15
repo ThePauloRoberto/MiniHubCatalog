@@ -22,11 +22,35 @@ public class CategoriesController : ControllerBase
         }
         
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<CategoryDto>>> GetCategories()
+        public async Task<ActionResult<IEnumerable<CategoryDto>>> GetCategories
+        (
+            [FromQuery] string? nameCategory,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string orderBy = "name",
+            [FromQuery] string orderDirection = "ASC"
+            )
         {
             try
             {
-                var categories = await _context.Categories
+                var query = _context.Categories.AsNoTracking()
+                    .Where(t => nameCategory == null || t.Name.Contains(nameCategory))
+                    .AsQueryable();
+                        
+                var isDescending = orderDirection?.ToUpper() == "DESC";
+        
+                query = orderBy.ToLower() switch
+                {
+                    "name_desc" => query.OrderByDescending(c => c.Name),
+                    "name" or _ => isDescending 
+                        ? query.OrderByDescending(c => c.Name)
+                        : query.OrderBy(c => c.Name)
+                };
+                var totalCount = await query.CountAsync();
+                
+                    var categories = query
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
                     .Select(c => new CategoryDto
                     {
                         Id = c.Id,
@@ -34,10 +58,16 @@ public class CategoriesController : ControllerBase
                         ExternalId = c.ExternalId,
                         ItemCount = _context.Items.Count(i => i.CategoryId == c.Id && i.Ativo)
                     })
-                    .OrderBy(c => c.Name)
                     .ToListAsync();
 
-                return Ok(categories);
+                return Ok(new
+                {
+                    Data = categories,
+                    Page = page,
+                    PageSize = pageSize,
+                    TotalCount = totalCount,
+                    TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+                });
             }
             catch (Exception ex)
             {
@@ -84,8 +114,7 @@ public class CategoriesController : ControllerBase
                 {
                     return BadRequest(new { message = "Nome é obrigatório" });
                 }
-
-                // Verifica se já existe categoria com esse nome
+                
                 var existingCategory = await _context.Categories
                     .FirstOrDefaultAsync(c => c.Name == dto.Name);
 
@@ -97,7 +126,6 @@ public class CategoriesController : ControllerBase
                     });
                 }
 
-                // Cria nova categoria
                 var category = new Category
                 {
                     Name = dto.Name,
@@ -107,7 +135,6 @@ public class CategoriesController : ControllerBase
                 _context.Categories.Add(category);
                 await _context.SaveChangesAsync();
 
-                // Retorna DTO
                 var result = new CategoryDto
                 {
                     Id = category.Id,
@@ -164,8 +191,7 @@ public class CategoriesController : ControllerBase
                 {
                     return NotFound(new { message = $"Categoria com ID {id} não encontrada" });
                 }
-
-                // Verifica se há itens associados
+                
                 if (category.Items.Any(i => i.Ativo))
                 {
                     return BadRequest(new { 

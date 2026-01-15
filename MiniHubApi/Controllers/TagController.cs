@@ -20,21 +20,51 @@ public class TagsController : ControllerBase
         }
         
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<TagDto>>> GetTags()
+        public async Task<ActionResult<IEnumerable<TagDto>>> GetTags(
+            [FromQuery] string? nameTag,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string orderBy = "name",
+            [FromQuery] string orderDirection = "ASC"
+            )
         {
             try
             {
-                var tags = await _context.Tags
-                    .Select(t => new TagDto
+                var query = _context.Tags.AsNoTracking()
+                    .Include(t => t.Items)
+                    .Where(t => nameTag == null || t.Name.Contains(nameTag))
+                    .AsQueryable();
+
+                var isDescending = orderDirection?.ToUpper() == "DESC";
+        
+                query = orderBy.ToLower() switch
+                {
+                    "name_desc" => query.OrderByDescending(t => t.Name),
+                    "name" or _ => isDescending 
+                        ? query.OrderByDescending(t => t.Name)
+                        : query.OrderBy(t => t.Name)
+                };
+                var totalCount = await query.CountAsync();
+                
+                    var tags = await query
+                        .Skip((page - 1) * pageSize)
+                        .Take(pageSize)
+                        .Select(t => new TagDto
                     {
                         Id = t.Id,
                         Name = t.Name,
                         ItemCount = t.Items.Count(i => i.Ativo)
                     })
-                    .OrderBy(t => t.Name)
                     .ToListAsync();
 
-                return Ok(tags);
+                return Ok(new
+                {
+                    data = tags,
+                    Page = page,
+                    PageSize = pageSize,
+                    TotalCount = totalCount,
+                    TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+                });
             }
             catch (Exception ex)
             {
@@ -52,8 +82,7 @@ public class TagsController : ControllerBase
                 {
                     return BadRequest(new { message = "Nome é obrigatório" });
                 }
-
-                // Verifica se já existe tag com esse nome
+                
                 var existingTag = await _context.Tags
                     .FirstOrDefaultAsync(t => t.Name == dto.Name);
 

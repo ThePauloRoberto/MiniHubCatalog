@@ -21,14 +21,47 @@ public class ItemController : ControllerBase
   }
   
   [HttpGet]
-  public async Task<ActionResult<IEnumerable<ItemDto>>> GetItems()
+  public async Task<ActionResult<IEnumerable<ItemDto>>> GetItems(
+      [FromQuery] string? nameItem,
+      [FromQuery] int page = 1,
+      [FromQuery] int pageSize = 10,
+      [FromQuery] string orderBy = "Nome",
+      [FromQuery] string orderDirection = "ASC")
   {
       try
       {
-          var items = await _context.Items
+          var query = _context.Items.AsNoTracking()
               .Include(i => i.Categoria)
               .Include(i => i.Tags)
-              .Where(i => i.Ativo)
+              .Where(i => nameItem == null || i.Nome.Contains(nameItem))
+              .AsQueryable();
+          
+          var isDescending = orderDirection?.ToUpper() == "DESC";
+
+          query = orderBy.ToLower() switch
+          {  "nome" => isDescending 
+                  ? query.OrderByDescending(i => i.Nome) 
+                  : query.OrderBy(i => i.Nome),
+            
+              "preco" => isDescending 
+                  ? query.OrderByDescending(i => i.Preco) 
+                  : query.OrderBy(i => i.Preco),
+            
+              "descricao" => isDescending 
+                  ? query.OrderByDescending(i => i.Descricao) 
+                  : query.OrderBy(i => i.Descricao),
+            
+              "estoque" => isDescending 
+                  ? query.OrderByDescending(i => i.Estoque) 
+                  : query.OrderBy(i => i.Estoque),
+            
+              _ => query.OrderBy(i => i.Nome)
+          };
+          
+          var totalCount = await query.CountAsync();
+          var items = await query
+              .Skip((page - 1) * pageSize)
+              .Take(pageSize)
               .Select(i => new ItemDto
               {
                   Id = i.Id,
@@ -40,13 +73,15 @@ public class ItemController : ControllerBase
                   ExternalId = i.ExternalId,
                   CategoryExternalId = i.CategoryExternalId,
                   CategoryId = i.CategoryId,
-                  Categoria = i.Categoria != null ? new CategoryDto
-                  {
-                      Id = i.Categoria.Id,
-                      Name = i.Categoria.Name,
-                      ExternalId = i.Categoria.ExternalId,
-                      ItemCount = 0
-                  } : null,
+                  Categoria = i.Categoria != null
+                      ? new CategoryDto
+                      {
+                          Id = i.Categoria.Id,
+                          Name = i.Categoria.Name,
+                          ExternalId = i.Categoria.ExternalId,
+                          ItemCount = 0
+                      }
+                      : null,
                   Tags = i.Tags.Select(t => new TagDto
                   {
                       Id = t.Id,
@@ -55,8 +90,16 @@ public class ItemController : ControllerBase
                   }).ToList(),
               })
               .ToListAsync();
-        
-          return Ok(items);
+          
+
+          return Ok(new
+          {
+              Data = items,
+              Page = page,
+              PageSize = pageSize,
+              TotalCount = totalCount,
+              TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+          });
       }
       catch (Exception ex)
       {
