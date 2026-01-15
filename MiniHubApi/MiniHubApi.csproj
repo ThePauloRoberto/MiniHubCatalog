@@ -6,12 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>70389e10-a893-4962-a2d1-31bfe5e18246</UserSecretsId>
   </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Remove="Controllers\WeatherForecastController.cs" />
-    <Compile Remove="WeatherForecast.cs" />
-  </ItemGroup>
-
+  
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.9" />

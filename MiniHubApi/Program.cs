@@ -18,25 +18,39 @@ builder.Services.AddControllers()
     options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     options.JsonSerializerOptions.WriteIndented = true;
 });;
+
+// Swagger/ OpenAPI
 builder.Services.AddSwaggerGen();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
+
+// Configuração da API Externa
 builder.Services.Configure<ExternalApiSettings>(
-    builder.Configuration.GetSection(ExternalApiSettings.SectionName));
+    builder.Configuration.GetSection(ExternalApiSettings.SectionName)
+    );
+
+
+builder.Services.AddHttpClient("ExternalApi", client =>
+{
+    client.BaseAddress = new Uri("https://69657a38f6de16bde44a70f6.mockapi.io/:endpoint");
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+});
+
 builder.Services.AddHttpClient<IExternalApiService, ExternalApiService>();
+
+// Services
 builder.Services.AddScoped<IDataImportService, DataImportService>();
 builder.Services.AddScoped<IItemService, ItemService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ITagService, TagService>();
 
-// Configure the HTTP request pipeline.
-
+// USE-SECRETS
 if (builder.Environment.IsDevelopment())
 {
     builder.Configuration.AddUserSecrets<Program>();
 }
 
-
+//Configuração do Mysql
 var mySqlConnection = builder.Configuration.GetConnectionString("MySqlConnection");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
@@ -57,7 +71,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     }
 });
 
-
+//Configuração do MongoDB
 var mongoDbConnection = builder.Configuration.GetConnectionString("MongoDbConnection");
 
 builder.Services.AddSingleton<IMongoClient, MongoClient>(sp =>
@@ -72,18 +86,19 @@ builder.Services.AddScoped<IMongoDatabase>(sp =>
     return client.GetDatabase("MiniHubAuditoria");
 });
 
-
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-builder.Services.AddHttpClient("ExternalApi", client =>
-{
-    client.BaseAddress = new Uri("https://69657a38f6de16bde44a70f6.mockapi.io/:endpoint");
-    client.DefaultRequestHeaders.Add("Accept", "application/json");
-});
-
 var app = builder.Build();
+
+//Configuração das Seeds
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await dbContext.Database.MigrateAsync();
+    
+    if (app.Environment.IsDevelopment())
+    {
+        await dbContext.SeedBasicDataAsync();
+    }
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -93,6 +108,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+//Middlewares
 app.UseMiddleware<ServiceLoggingMiddleware>();
 app.UseMiddleware<ServiceExceptionMiddleware>();
 
