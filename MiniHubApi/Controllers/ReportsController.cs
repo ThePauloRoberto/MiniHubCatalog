@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using MiniHubApi.Application.Services.Interfaces;
 
 namespace MiniHubApi.Controllers;
@@ -19,6 +20,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("dashboard")]
+    [Authorize(Roles = "Admin,Editor,Viewer")]
     public async Task<ActionResult<DashboardReport>> GetDashboardReport()
     {
         try
@@ -34,6 +36,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("export")]
+    [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> ExportReport()
     {
         try
@@ -56,6 +59,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("download/{fileName}")]
+    [Authorize(Roles = "Admin,Editor,Viewer")]
     public async Task<IActionResult> DownloadReport(string fileName)
     {
         try

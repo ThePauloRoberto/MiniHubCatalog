@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using MiniHubApi.Application.DTOs;
 using MiniHubApi.Application.DTOs.External;
 using MiniHubApi.Application.DTOs.Responses;
@@ -23,6 +24,7 @@ public class ItemController : ControllerBase
   }
   
   [HttpGet]
+  [Authorize(Roles = "Admin,Editor,Viewer")]
   public async Task<ActionResult<PagedResponse<ItemDto>>> GetItems([FromQuery] ItemQueryParams queryParams)
   {
           var result = await _itemService.GetItemsAsync(
@@ -42,6 +44,7 @@ public class ItemController : ControllerBase
   }
     
   [HttpPost]
+  [Authorize(Roles = "Admin,Editor")]
   public async Task<ActionResult<ItemDto>> CreateItem(CreateItemDto createDto)
   {
           var createdItem = await _itemService.CreateItemAsync(createDto);
@@ -59,6 +62,7 @@ public class ItemController : ControllerBase
     
    
   [HttpPut("{id}")]
+  [Authorize(Roles = "Admin,Editor")]
   public async Task<ActionResult<ItemDto>> UpdateItem(Guid id, UpdateItemDto updateDto)
   {
           var updatedItem = await _itemService.UpdateItemAsync(id, updateDto);
@@ -76,6 +80,7 @@ public class ItemController : ControllerBase
   }
     
   [HttpDelete("{id}")]
+  [Authorize(Roles = "Admin")]
   public async Task<ActionResult> DeleteItem(Guid id)
   {
 

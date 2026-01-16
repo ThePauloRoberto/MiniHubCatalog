@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using MiniHubApi.Application.Services.Interfaces;
 
 namespace MiniHubApi.Controllers;
@@ -22,6 +23,7 @@ public class ImportController : ControllerBase
     }
 
     [HttpPost("categories")]
+    [Authorize(Roles = "Admin,Editor")]
     public async Task<ActionResult> ImportCategories()
     {
         _logger.LogInformation("Solicitada importação de categorias...");
@@ -44,6 +46,7 @@ public class ImportController : ControllerBase
     
     
     [HttpPost("products")]
+    [Authorize(Roles = "Admin,Editor")]
     public async Task<ActionResult> ImportProducts()
     {
         _logger.LogInformation("Solicitada importação de produtos...");

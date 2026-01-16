@@ -129,8 +129,6 @@ namespace MiniHubApi.Application.Services.Implementations
                         }).ToList()
                     })
                     .FirstOrDefaultAsync();
-                
-                
             }
             catch (Exception ex)
             {
@@ -156,6 +154,14 @@ namespace MiniHubApi.Application.Services.Implementations
 
                 _context.Items.Add(item);
                 await _context.SaveChangesAsync();
+                
+                await _auditLogger.LogActionAsync(
+                    action: "CREATE",
+                    entityType: "Item",
+                    entityId: item.Id.ToString(),
+                    newValues: createDto,
+                    details: $"Item '{item.Nome}' criado"
+                );
 
                 return await GetItemByIdAsync(item.Id)
                        ?? throw new InvalidOperationException("Item not found after creation");
@@ -178,25 +184,69 @@ namespace MiniHubApi.Application.Services.Implementations
                 if (item == null)
                     return null;
                 
-                if (!string.IsNullOrEmpty(updateDto.Nome))
+                var oldValues = new
+                {
+                    item.Nome,
+                    item.Descricao,
+                    item.Preco,
+                    item.Ativo,
+                    item.Estoque,
+                    item.CategoryId
+                };
+
+                bool hasChanges = false;
+                
+                if (!string.IsNullOrEmpty(updateDto.Nome) && updateDto.Nome != item.Nome)
+                {
                     item.Nome = updateDto.Nome;
+                    hasChanges = true;
+                }
 
-                if (!string.IsNullOrEmpty(updateDto.Descricao))
+                if (!string.IsNullOrEmpty(updateDto.Descricao) && updateDto.Descricao != item.Descricao)
+                {
                     item.Descricao = updateDto.Descricao;
+                    hasChanges = true;
+                }
 
-                if (updateDto.Preco.HasValue)
+                if (updateDto.Preco.HasValue && updateDto.Preco.Value != item.Preco)
+                {
                     item.Preco = updateDto.Preco.Value;
+                    hasChanges = true;
+                }
 
-                if (updateDto.Ativo.HasValue)
+                if (updateDto.Ativo.HasValue && updateDto.Ativo.Value != item.Ativo)
+                {
                     item.Ativo = updateDto.Ativo.Value;
+                    hasChanges = true;
+                }
 
-                if (updateDto.Estoque.HasValue)
+                if (updateDto.Estoque.HasValue && updateDto.Estoque.Value != item.Estoque)
+                {
                     item.Estoque = updateDto.Estoque.Value;
+                    hasChanges = true;
+                }
 
-                if (updateDto.CategoryId.HasValue)
+                if (updateDto.CategoryId.HasValue && updateDto.CategoryId.Value != item.CategoryId)
+                {
                     item.CategoryId = updateDto.CategoryId.Value;
+                    hasChanges = true;
+                }
+
+                if (!hasChanges)
+                {
+                    return await GetItemByIdAsync(id);
+                }
 
                 await _context.SaveChangesAsync();
+                
+                await _auditLogger.LogActionAsync(
+                    action: "UPDATE",
+                    entityType: "Item",
+                    entityId: id.ToString(),
+                    newValues: new { OldValues = oldValues, NewValues = updateDto },
+                    details: $"Item '{item.Nome}' atualizado"
+                );
+
                 return await GetItemByIdAsync(id);
             }
             catch (Exception ex)
@@ -210,12 +260,32 @@ namespace MiniHubApi.Application.Services.Implementations
         {
             try
             {
-                var item = await _context.Items.FindAsync(id);
+                var item = await _context.Items
+                    .Include(i => i.Categoria)
+                    .FirstOrDefaultAsync(i => i.Id == id);
+                    
                 if (item == null)
                     return false;
+                
+                var itemInfo = new
+                {
+                    item.Nome,
+                    item.Preco,
+                    item.Estoque,
+                    CategoryName = item.Categoria?.Name
+                };
 
                 _context.Items.Remove(item);
                 await _context.SaveChangesAsync();
+                
+                await _auditLogger.LogActionAsync(
+                    action: "DELETE",
+                    entityType: "Item",
+                    entityId: id.ToString(),
+                    newValues: itemInfo,
+                    details: $"Item '{itemInfo.Nome}' excluído"
+                );
+
                 return true;
             }
             catch (Exception ex)
@@ -265,6 +335,14 @@ namespace MiniHubApi.Application.Services.Implementations
 
                 _context.Items.Add(item);
                 await _context.SaveChangesAsync();
+                
+                await _auditLogger.LogActionAsync(
+                    action: "IMPORT",
+                    entityType: "Item",
+                    entityId: item.Id.ToString(),
+                    newValues: importDto,
+                    details: $"Item importado: {item.Nome}"
+                );
 
                 return await GetItemByIdAsync(item.Id)
                        ?? throw new InvalidOperationException("Item não encontrado após criação");

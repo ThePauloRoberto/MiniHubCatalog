@@ -1,6 +1,6 @@
 ﻿namespace MiniHubApi.Domain.Entities;
 
-public enum Role
+public enum U
 {
     Admin,
     Editor,

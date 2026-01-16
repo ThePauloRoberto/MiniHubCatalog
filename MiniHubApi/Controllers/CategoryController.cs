@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using MiniHubApi.Application.DTOs;
 using MiniHubApi.Application.DTOs.Responses;
 using MiniHubApi.Application.Services.Interfaces;
@@ -25,6 +26,7 @@ namespace MiniHubApi.Controllers;
         }
         
         [HttpGet]
+        [Authorize(Roles = "Admin,Editor,Viewer")]
         public async Task<ActionResult<PagedResponse<CategoryDto>>> GetCategories(
             [FromQuery] string? name = null,
             [FromQuery] string orderBy = "name",
@@ -50,6 +52,7 @@ namespace MiniHubApi.Controllers;
         }
         
         [HttpPost]
+        [Authorize(Roles = "Admin,Editor")]
         public async Task<ActionResult<CategoryDto>> CreateCategory(CreateCategoryDto createDto)
         {
             var createdCategory = await _categoryService.CreateCategoryAsync(createDto);
@@ -67,6 +70,7 @@ namespace MiniHubApi.Controllers;
         }
         
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin,Editor")]
         public async Task<ActionResult<CategoryDto>> UpdateCategory(int id, CreateCategoryDto updateDto)
         {
             var updatedCategory = await _categoryService.UpdateCategoryAsync(id, updateDto);
@@ -87,6 +91,7 @@ namespace MiniHubApi.Controllers;
         }
         
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult> DeleteCategory(int id)
         {
             var deleted = await _categoryService.DeleteCategoryAsync(id);

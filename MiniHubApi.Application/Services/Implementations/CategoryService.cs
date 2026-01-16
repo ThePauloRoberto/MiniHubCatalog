@@ -12,11 +12,13 @@ namespace MiniHubApi.Application.Services.Implementations
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<CategoryService> _logger;
+        private readonly IAuditService _auditLogger;
 
-        public CategoryService(ApplicationDbContext context, ILogger<CategoryService> logger)
+        public CategoryService(ApplicationDbContext context, ILogger<CategoryService> logger, IAuditService auditLogger)
         {
             _context = context;
             _logger = logger;
+            _auditLogger = auditLogger;
         }
 
         public async Task<PagedResponse<CategoryDto>> GetCategoriesAsync(
@@ -33,7 +35,7 @@ namespace MiniHubApi.Application.Services.Implementations
                     .AsQueryable();
 
                 var isDescending = orderDirection?.ToUpper() == "DESC";
-                
+
                 query = orderBy.ToLower() switch
                 {
                     "itemcount" => isDescending 
@@ -45,7 +47,7 @@ namespace MiniHubApi.Application.Services.Implementations
                 };
 
                 var totalCount = await query.CountAsync();
-                
+
                 var categories = await query
                     .Skip((page - 1) * pageSize)
                     .Take(pageSize)
@@ -66,7 +68,6 @@ namespace MiniHubApi.Application.Services.Implementations
                 throw;
             }
         }
-        
 
         public async Task<CategoryDto?> GetCategoryByIdAsync(int id)
         {
@@ -103,6 +104,14 @@ namespace MiniHubApi.Application.Services.Implementations
 
                 _context.Categories.Add(category);
                 await _context.SaveChangesAsync();
+                
+                await _auditLogger.LogActionAsync(
+                    action: "CREATE",
+                    entityType: "Category",
+                    entityId: category.Id.ToString(),
+                    newValues: createDto,
+                    details: $"Categoria '{category.Name}' criada"
+                );
 
                 return await GetCategoryByIdAsync(category.Id) 
                     ?? throw new InvalidOperationException("Category not found after creation");
@@ -113,7 +122,6 @@ namespace MiniHubApi.Application.Services.Implementations
                 throw;
             }
         }
-        
 
         public async Task<CategoryDto?> UpdateCategoryAsync(int id, CreateCategoryDto updateDto)
         {
@@ -122,13 +130,42 @@ namespace MiniHubApi.Application.Services.Implementations
                 var category = await _context.Categories.FindAsync(id);
                 if (category == null)
                     return null;
+                
+                var oldValues = new
+                {
+                    category.Name,
+                    category.ExternalId
+                };
 
-                if (!string.IsNullOrEmpty(updateDto.Name))
+                bool hasChanges = false;
+
+                if (!string.IsNullOrEmpty(updateDto.Name) && updateDto.Name != category.Name)
+                {
                     category.Name = updateDto.Name;
-                    
-                category.ExternalId = updateDto.ExternalId; // Pode ser null
+                    hasChanges = true;
+                }
+
+                if (updateDto.ExternalId != category.ExternalId)
+                {
+                    category.ExternalId = updateDto.ExternalId;
+                    hasChanges = true;
+                }
+
+                if (!hasChanges)
+                {
+                    return await GetCategoryByIdAsync(id);
+                }
 
                 await _context.SaveChangesAsync();
+                
+                await _auditLogger.LogActionAsync(
+                    action: "UPDATE",
+                    entityType: "Category",
+                    entityId: id.ToString(),
+                    newValues: new { OldValues = oldValues, NewValues = updateDto },
+                    details: $"Categoria '{category.Name}' atualizada"
+                );
+
                 return await GetCategoryByIdAsync(id);
             }
             catch (Exception ex)
@@ -145,15 +182,31 @@ namespace MiniHubApi.Application.Services.Implementations
                 var category = await _context.Categories
                     .Include(c => c.Items)
                     .FirstOrDefaultAsync(c => c.Id == id);
-                    
+
                 if (category == null)
                     return false;
-                    
+
                 if (category.Items.Any())
                     throw new InvalidOperationException("Cannot delete category with associated items");
+                
+                var categoryInfo = new
+                {
+                    category.Name,
+                    category.ExternalId,
+                    ItemCount = category.Items.Count
+                };
 
                 _context.Categories.Remove(category);
                 await _context.SaveChangesAsync();
+                
+                await _auditLogger.LogActionAsync(
+                    action: "DELETE",
+                    entityType: "Category",
+                    entityId: id.ToString(),
+                    newValues: categoryInfo,
+                    details: $"Categoria '{categoryInfo.Name}' excluída"
+                );
+
                 return true;
             }
             catch (Exception ex)

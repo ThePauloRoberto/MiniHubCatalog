@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using MiniHubApi.Application.DTOs;
 using MiniHubApi.Application.DTOs.Responses;
 using MiniHubApi.Application.Services.Interfaces;
@@ -22,6 +23,7 @@ public class TagsController : ControllerBase
         }
         
         [HttpGet]
+        [Authorize(Roles = "Admin,Editor,Viewer")]
         public async Task<ActionResult<PagedResponse<TagDto>>> GetTags([FromQuery] TagQueryParams queryParams)
         {
                 var result = await _tagService.GetTagsAsync(
@@ -31,6 +33,7 @@ public class TagsController : ControllerBase
         }
         
         [HttpPost]
+        [Authorize(Roles = "Admin,Editor")]
         public async Task<ActionResult<TagDto>> CreateTag(CreateTagDto createDto)
         {
             var createdTag = await _tagService.CreateTagAsync(createDto);

@@ -25,4 +25,12 @@ public class AuditLog
         
     [BsonElement("userId")]
     public string UserId { get; set; } = "System";
+    [BsonElement("ipAddress")]
+    public string? IpAddress { get; set; } // Nullable
+
+    [BsonElement("userAgent")]
+    public string? UserAgent { get; set; } // Nullable
+
+    [BsonElement("payload")]
+    public string? Payload { get; set; } // Nullable
 }

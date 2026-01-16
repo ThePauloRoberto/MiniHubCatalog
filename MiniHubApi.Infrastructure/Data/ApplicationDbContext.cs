@@ -109,6 +109,18 @@ namespace MiniHubApi.Infrastructure.Data
 
             });
             
+            
+            builder.Entity<ApplicationUser>(entity =>
+            {
+                entity.Property(u => u.FirstName).HasMaxLength(100);
+                entity.Property(u => u.LastName).HasMaxLength(100);
+                entity.Property(u => u.CreatedAt).IsRequired();
+                entity.Property(u => u.IsActive).HasDefaultValue(true);
+                entity.HasIndex(u => u.Email).IsUnique();
+                entity.HasIndex(u => u.IsActive);
+                entity.HasIndex(u => u.CreatedAt);
+            });
+            
         }
         
         
@@ -138,13 +150,13 @@ namespace MiniHubApi.Infrastructure.Data
                     },
                     new Category { 
                         Id = 4,
-                        Name = "Livros", 
-                        ExternalId = "CAT-LIVR-003" 
+                        Name = "Roupas", 
+                        ExternalId = "CAT-ROUP-004" 
                     },
                     new Category  { 
                         Id = 5,
-                        Name = "Livros", 
-                        ExternalId = "CAT-LIVR-003" 
+                        Name = "Casa & Cozinha", 
+                        ExternalId = "CAT-CASA-005" 
                     }
                 };
 
@@ -267,6 +279,7 @@ namespace MiniHubApi.Infrastructure.Data
                     {
                         mysqlOptions.MigrationsAssembly("MiniHubApi.Infrastructure");
                     });
+                
             }
             base.OnConfiguring(optionsBuilder);
         }
