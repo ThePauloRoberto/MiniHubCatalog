@@ -13,11 +13,13 @@ namespace MiniHubApi.Application.Services.Implementations
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<ItemService> _logger;
+        private readonly IAuditService _auditLogger;
 
-        public ItemService(ApplicationDbContext context, ILogger<ItemService> logger)
+        public ItemService(ApplicationDbContext context, ILogger<ItemService> logger, IAuditService auditLogger)
         {
             _context = context;
             _logger = logger;
+            _auditLogger = auditLogger;
         }
 
         public async Task<PagedResponse<ItemDto>> GetItemsAsync(
@@ -127,6 +129,8 @@ namespace MiniHubApi.Application.Services.Implementations
                         }).ToList()
                     })
                     .FirstOrDefaultAsync();
+                
+                
             }
             catch (Exception ex)
             {
@@ -173,8 +177,7 @@ namespace MiniHubApi.Application.Services.Implementations
 
                 if (item == null)
                     return null;
-
-                // Atualiza apenas os campos que vieram no DTO
+                
                 if (!string.IsNullOrEmpty(updateDto.Nome))
                     item.Nome = updateDto.Nome;
 
@@ -228,15 +231,13 @@ namespace MiniHubApi.Application.Services.Implementations
             {
                 if (string.IsNullOrWhiteSpace(importDto.ExternalId))
                     throw new ArgumentException("ExternalId é obrigatório para importação");
-
-                // Verifica se já existe
+                
                 var existingItem = await _context.Items
                     .FirstOrDefaultAsync(i => i.ExternalId == importDto.ExternalId);
 
                 if (existingItem != null)
                     throw new InvalidOperationException($"Item com ExternalId {importDto.ExternalId} já existe");
-
-                // Encontra categoria
+                
                 Category? category = null;
                 if (!string.IsNullOrEmpty(importDto.CategoryExternalId))
                 {
@@ -256,8 +257,7 @@ namespace MiniHubApi.Application.Services.Implementations
                     CategoryExternalId = importDto.CategoryExternalId,
                     CategoryId = category?.Id,
                 };
-
-                // Processa tags se existirem
+                
                 if (importDto.Tags != null && importDto.Tags.Any())
                 {
                     await ProcessTagsForItemAsync(item, importDto.Tags);
@@ -286,8 +286,7 @@ namespace MiniHubApi.Application.Services.Implementations
 
             if (!normalizedTags.Any())
                 return;
-
-            // Busca tags existentes
+            
             var existingTags = await _context.Tags
                 .Where(t => normalizedTags.Select(n => n.ToLower()).Contains(t.Name.ToLower()))
                 .ToListAsync();
@@ -295,8 +294,7 @@ namespace MiniHubApi.Application.Services.Implementations
             var existingTagNames = existingTags
                 .Select(t => t.Name.ToLower())
                 .ToHashSet();
-
-            // Cria novas tags
+            
             var newTags = normalizedTags
                 .Where(name => !existingTagNames.Contains(name.ToLower()))
                 .Select(name => new Tag
@@ -310,16 +308,14 @@ namespace MiniHubApi.Application.Services.Implementations
             {
                 await _context.Tags.AddRangeAsync(newTags);
                 await _context.SaveChangesAsync();
-
-                // Busca as tags criadas (para ter o ID)
+                
                 var createdTags = await _context.Tags
                     .Where(t => newTags.Select(nt => nt.Name.ToLower()).Contains(t.Name.ToLower()))
                     .ToListAsync();
 
                 existingTags.AddRange(createdTags);
             }
-
-            // Associa todas as tags ao item
+            
             item.Tags = existingTags;
         }
     }
