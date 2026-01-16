@@ -1,12 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using MiniHubApi.Application.DTOs;
 using MiniHubApi.Application.DTOs.External;
 using MiniHubApi.Application.DTOs.Responses;
 using MiniHubApi.Application.Services.Interfaces;
 using MiniHubApi.Application.Utils;
-using MiniHubApi.Domain.Entities;
-using MiniHubApi.Infrastructure.Data;
 
 namespace MiniHubApi.Controllers;
 
@@ -15,12 +12,14 @@ namespace MiniHubApi.Controllers;
 public class ItemController : ControllerBase
 {
   private readonly IItemService _itemService;
+  private readonly IAuditService _auditService;
   private readonly ILogger<ItemController> _logger;
 
-  public ItemController(IItemService itemService, ILogger<ItemController> logger)
+  public ItemController(IItemService itemService,IAuditService auditService, ILogger<ItemController> logger)
   {
       _itemService = itemService;
-    _logger = logger;
+      _auditService = auditService;
+      _logger = logger;
   }
   
   [HttpGet]
@@ -46,6 +45,15 @@ public class ItemController : ControllerBase
   public async Task<ActionResult<ItemDto>> CreateItem(CreateItemDto createDto)
   {
           var createdItem = await _itemService.CreateItemAsync(createDto);
+          await _auditService.LogActionAsync(
+                  action: "CREATE",
+                  entityType: "Item",
+                  entityId: createdItem.Id.ToString(),
+                  newValues: new { 
+                          Nome = createdItem.Nome,
+                          Preco = createdItem.Preco,
+                          Ativo = createdItem.Ativo
+                  });
           return CreatedAtAction(nameof(GetItem), new { id = createdItem.Id }, createdItem);
   }
     
@@ -54,6 +62,16 @@ public class ItemController : ControllerBase
   public async Task<ActionResult<ItemDto>> UpdateItem(Guid id, UpdateItemDto updateDto)
   {
           var updatedItem = await _itemService.UpdateItemAsync(id, updateDto);
+          
+          await _auditService.LogActionAsync(
+                  action: "UPDATE",
+                  entityType: "Item",
+                  entityId: id.ToString(),
+                  newValues: new { 
+                          Nome = updatedItem.Nome,
+                          Preco = updatedItem.Preco,
+                          Ativo = updatedItem.Ativo
+                  });
           return updatedItem == null ? NotFound() : Ok(updatedItem);
   }
     
@@ -62,6 +80,11 @@ public class ItemController : ControllerBase
   {
 
           var deleted = await _itemService.DeleteItemAsync(id);
+          await _auditService.LogActionAsync(
+                  action: "DELETE",
+                  entityType: "Item",
+                  entityId: id.ToString(),
+                  newValues: new {});
           return deleted ? NoContent() : NotFound();
   }
   
@@ -72,6 +95,16 @@ public class ItemController : ControllerBase
               return BadRequest(ModelState);
 
           var importedItem = await _itemService.ImportItemAsync(importDto);
+          
+          await _auditService.LogActionAsync(
+                  action: "IMPORT",
+                  entityType: "Item",
+                  entityId: importedItem.Id.ToString(),
+                  newValues: new { 
+                          ExternalId = importDto.ExternalId,
+                          Nome = importedItem.Nome,
+                          TagsCount = importDto.Tags?.Count ?? 0
+                  });
           return CreatedAtAction(nameof(GetItem), new { id = importedItem.Id }, importedItem);
   }
 }

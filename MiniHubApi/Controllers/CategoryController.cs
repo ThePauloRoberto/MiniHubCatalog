@@ -1,205 +1,105 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using MiniHubApi.Application.DTOs;
-using MiniHubApi.Domain.Entities;
-using MiniHubApi.Infrastructure.Data;
+using MiniHubApi.Application.DTOs.Responses;
+using MiniHubApi.Application.Services.Interfaces;
 
 namespace MiniHubApi.Controllers;
 
-[ApiController]
-[Route("api/[controller]")]
-public class CategoriesController : ControllerBase
-{
-     private readonly ApplicationDbContext _context;
+
+  [ApiController]
+    [Route("api/[controller]")]
+    public class CategoriesController : ControllerBase
+    {
+        private readonly ICategoryService _categoryService;
+        private readonly IAuditService _auditService;
         private readonly ILogger<CategoriesController> _logger;
 
         public CategoriesController(
-            ApplicationDbContext context,
+            ICategoryService categoryService,
+            IAuditService auditService,
             ILogger<CategoriesController> logger)
         {
-            _context = context;
+            _categoryService = categoryService;
+            _auditService = auditService;
             _logger = logger;
         }
         
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<CategoryDto>>> GetCategories
-        (
-            [FromQuery] string? nameCategory,
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10,
+        public async Task<ActionResult<PagedResponse<CategoryDto>>> GetCategories(
+            [FromQuery] string? name = null,
             [FromQuery] string orderBy = "name",
-            [FromQuery] string orderDirection = "ASC"
-            )
+            [FromQuery] string orderDirection = "ASC",
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            try
-            {
-                var query = _context.Categories.AsNoTracking()
-                    .Where(t => nameCategory == null || t.Name.Contains(nameCategory))
-                    .AsQueryable();
-                        
-                var isDescending = orderDirection?.ToUpper() == "DESC";
-        
-                query = orderBy.ToLower() switch
-                {
-                    "name_desc" => query.OrderByDescending(c => c.Name),
-                    "name" or _ => isDescending 
-                        ? query.OrderByDescending(c => c.Name)
-                        : query.OrderBy(c => c.Name)
-                };
-                var totalCount = await query.CountAsync();
+            var result = await _categoryService.GetCategoriesAsync(
+                name, orderBy, orderDirection, page, pageSize);
                 
-                    var categories = query
-                    .Skip((page - 1) * pageSize)
-                    .Take(pageSize)
-                    .Select(c => new CategoryDto
-                    {
-                        Id = c.Id,
-                        Name = c.Name,
-                        ExternalId = c.ExternalId,
-                        ItemCount = _context.Items.Count(i => i.CategoryId == c.Id && i.Ativo)
-                    })
-                    .ToListAsync();
-
-                return Ok(new
-                {
-                    Data = categories,
-                    Page = page,
-                    PageSize = pageSize,
-                    TotalCount = totalCount,
-                    TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao buscar categorias");
-                return StatusCode(500, new { message = "Erro interno do servidor" });
-            }
+            return Ok(result);
         }
-        
-        [HttpGet("{id:int}")]
+
+        [HttpGet("{id}")]
         public async Task<ActionResult<CategoryDto>> GetCategory(int id)
         {
-                var category = await _context.Categories
-                    .Select(c => new CategoryDto
-                    {
-                        Id = c.Id,
-                        Name = c.Name,
-                        ExternalId = c.ExternalId,
-                        ItemCount = c.Items.Count(i => i.Ativo)
-                    })
-                    .FirstOrDefaultAsync(c => c.Id == id);
-
-                if (category == null)
-                {
-                    return NotFound(new { message = $"Categoria com ID {id} não encontrada" });
-                }
-
-                return Ok(category);
+            var category = await _categoryService.GetCategoryByIdAsync(id);
             
+            if (category == null)
+                return NotFound(new { Message = $"Category with ID {id} not found" });
+                
+            return Ok(category);
         }
         
         [HttpPost]
-        public async Task<ActionResult<CategoryDto>> CreateCategory([FromBody] CreateCategoryDto dto)
+        public async Task<ActionResult<CategoryDto>> CreateCategory(CreateCategoryDto createDto)
         {
-                if (string.IsNullOrWhiteSpace(dto.Name))
-                {
-                    return BadRequest(new { message = "Nome é obrigatório" });
-                }
-                
-                var existingCategory = await _context.Categories
-                    .FirstOrDefaultAsync(c => c.Name == dto.Name);
-
-                if (existingCategory != null)
-                {
-                    return Conflict(new { 
-                        message = $"Já existe uma categoria com o nome '{dto.Name}'",
-                        categoryId = existingCategory.Id
-                    });
-                }
-
-                var category = new Category
-                {
-                    Name = dto.Name,
-                    ExternalId = dto.ExternalId
-                };
-
-                _context.Categories.Add(category);
-                await _context.SaveChangesAsync();
-
-                var result = new CategoryDto
-                {
-                    Id = category.Id,
-                    Name = category.Name,
-                    ExternalId = category.ExternalId,
-                    ItemCount = 0
-                };
-
-                return CreatedAtAction(nameof(GetCategory), new { id = category.Id }, result);
-        }
-        
-        [HttpPut("{id:int}")]
-        public async Task<IActionResult> UpdateCategory(int id, [FromBody] CreateCategoryDto dto)
-        {
-                var category = await _context.Categories.FindAsync(id);
-
-                if (category == null)
-                {
-                    return NotFound(new { message = $"Categoria com ID {id} não encontrada" });
-                }
-
-                category.Name = dto.Name;
-                category.ExternalId = dto.ExternalId;
-
-                await _context.SaveChangesAsync();
-
-                return NoContent();
-        }
-        
-        [HttpDelete("{id:int}")]
-        public async Task<IActionResult> DeleteCategory(int id)
-        {
-                var category = await _context.Categories
-                    .Include(c => c.Items)
-                    .FirstOrDefaultAsync(c => c.Id == id);
-
-                if (category == null)
-                {
-                    return NotFound(new { message = $"Categoria com ID {id} não encontrada" });
-                }
-                
-                if (category.Items.Any(i => i.Ativo))
-                {
-                    return BadRequest(new { 
-                        message = "Não é possível excluir categoria com itens ativos",
-                        activeItemsCount = category.Items.Count(i => i.Ativo)
-                    });
-                }
-
-                _context.Categories.Remove(category);
-                await _context.SaveChangesAsync();
-
-                return NoContent();
-        }
-        
-        [HttpGet("by-external/{externalId}")]
-        public async Task<ActionResult<CategoryDto>> GetCategoryByExternalId(string externalId)
-        {
-                var category = await _context.Categories
-                    .Select(c => new CategoryDto
-                    {
-                        Id = c.Id,
-                        Name = c.Name,
-                        ExternalId = c.ExternalId,
-                        ItemCount = c.Items.Count(i => i.Ativo)
-                    })
-                    .FirstOrDefaultAsync(c => c.ExternalId == externalId);
-
-                if (category == null)
-                {
-                    return NotFound(new { message = $"Categoria com ExternalId {externalId} não encontrada" });
-                }
-
-                return Ok(category);
+            var createdCategory = await _categoryService.CreateCategoryAsync(createDto);
             
+            await _auditService.LogActionAsync(
+                action: "CREATE",
+                entityType: "Category",
+                entityId: createdCategory.Id.ToString(),
+                newValues: new { 
+                    Name = createdCategory.Name,
+                    ExternalId = createdCategory.ExternalId
+                });
+            
+            return CreatedAtAction(nameof(GetCategory), new { id = createdCategory.Id }, createdCategory);
         }
-}
+        
+        [HttpPut("{id}")]
+        public async Task<ActionResult<CategoryDto>> UpdateCategory(int id, CreateCategoryDto updateDto)
+        {
+            var updatedCategory = await _categoryService.UpdateCategoryAsync(id, updateDto);
+            
+            if (updatedCategory == null)
+                return NotFound(new { Message = $"Category with ID {id} not found" });
+            
+            await _auditService.LogActionAsync(
+                action: "UPDATE",
+                entityType: "Category",
+                entityId: id.ToString(),
+                newValues: new { 
+                    Name = updatedCategory.Name,
+                    ExternalId = updatedCategory.ExternalId
+                });
+            
+            return Ok(updatedCategory);
+        }
+        
+        [HttpDelete("{id}")]
+        public async Task<ActionResult> DeleteCategory(int id)
+        {
+            var deleted = await _categoryService.DeleteCategoryAsync(id);
+            
+            if (!deleted)
+                return NotFound(new { Message = $"Category with ID {id} not found" });
+            
+            await _auditService.LogActionAsync(
+                action: "DELETE",
+                entityType: "Category",
+                entityId: id.ToString(),
+                newValues: new {});
+            
+            return NoContent();
+        }
+    }
